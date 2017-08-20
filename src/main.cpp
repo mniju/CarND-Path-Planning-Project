@@ -8,6 +8,7 @@
 #include "Eigen-3.3/Eigen/Core"
 #include "Eigen-3.3/Eigen/QR"
 #include "json.hpp"
+#include "spline.h"
 
 using namespace std;
 
@@ -159,6 +160,11 @@ vector<double> getXY(double s, double d, vector<double> maps_s, vector<double> m
 
 }
 
+
+  int lane =1;//Lanes are 0,1,2. Here we start in the centre lane.
+  double ref_vel = 0;//Reference velocity
+  double new_target_speed = 49.5;// Target velocity we Aim for.
+
 int main() {
   uWS::Hub h;
 
@@ -173,6 +179,7 @@ int main() {
   string map_file_ = "../data/highway_map.csv";
   // The max s value before wrapping around the track back to 0
   double max_s = 6945.554;
+
 
   ifstream in_map_(map_file_.c_str(), ifstream::in);
 
@@ -196,6 +203,7 @@ int main() {
   	map_waypoints_dy.push_back(d_y);
   }
 
+
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,&map_waypoints_dx,&map_waypoints_dy](uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                      uWS::OpCode opCode) {
     // "42" at the start of the message means there's a websocket message event.
@@ -209,12 +217,12 @@ int main() {
 
       if (s != "") {
         auto j = json::parse(s);
-        
+
         string event = j[0].get<string>();
-        
+
         if (event == "telemetry") {
           // j[1] is the data JSON object
-          
+
         	// Main car's localization Data
           	double car_x = j[1]["x"];
           	double car_y = j[1]["y"];
@@ -226,7 +234,7 @@ int main() {
           	// Previous path data given to the Planner
           	auto previous_path_x = j[1]["previous_path_x"];
           	auto previous_path_y = j[1]["previous_path_y"];
-          	// Previous path's end s and d values 
+          	// Previous path's end s and d values
           	double end_path_s = j[1]["end_path_s"];
           	double end_path_d = j[1]["end_path_d"];
 
@@ -235,11 +243,218 @@ int main() {
 
           	json msgJson;
 
+            int prev_size = previous_path_x.size();//We get this from the simulator
+
+            if (prev_size >0)
+            {
+              car_s = end_path_s;
+            }
+            bool too_close = false;
+            //std:cout<<sensor_fusion.size()<<std::endl;
+
+            //find ref_vel to use
+            vector<double> lane0;
+            vector<double> lane1;
+            vector<double> lane2;
+            lane0.clear();
+            lane1.clear();
+            lane2.clear();
+            float l_width = 4;//Lane width
+            for(int i=0;i<sensor_fusion.size();i++)
+            {
+              float d = sensor_fusion[i][6];
+              double s = sensor_fusion[i][5];
+              double dis = car_s - s;//Distance of this car w.r.t to our car
+              int car_lane = floor(d/l_width);
+              if (car_lane == 0)
+              {
+                lane0.push_back(std::fabs(dis));
+              }
+              else if (car_lane == 1)
+              {
+                lane1.push_back(std::fabs(dis));
+              }
+
+              else
+              {
+                lane2.push_back(std::fabs(dis));
+              }
+              //check if the current car is in our lane
+              if (d < (2+ 4*lane+2) && d >(2+ 4*lane -2))
+              {
+                double vx = sensor_fusion[i][3];
+                double vy = sensor_fusion[i][4];
+                double check_speed = sqrt(vx*vx + vy*vy);//magnitude of velocity
+                double check_car_s = sensor_fusion[i][5];
+
+                check_car_s += (double)prev_size*0.02*check_speed;//Project position at the next iteration
+
+                //check if the vehicle is in front our car ; if the gap between our car and vehicle is less ~30
+                if ((check_car_s >car_s)&& ( check_car_s-car_s <30.0))
+                {
+                  //ref_vel = 29.5;
+                  too_close = true;
+                  std::cout<<"Car at Front:->Its Speed:"<<check_speed*2.23694<<std::endl;//m/sec to miles per hour conversion
+                  new_target_speed = (check_speed*2.23694) -10;// subtract 5 for safety
+
+                }
+              }
+
+            }
+            if(too_close)
+            {
+              if (ref_vel > new_target_speed)
+              {
+                ref_vel -= 0.224;//5 meters/sec2
+              }
+              //consider only two lanes (Lane0 and Lane1)
+              //Find minimum of lane0
+              double min_lane0 = *std::min_element(lane0.begin(),lane0.end());
+              double min_lane1 = *std::min_element(lane1.begin(),lane1.end());
+              double min_lane2 = *std::min_element(lane2.begin(),lane2.end());
+
+              if(lane ==1)//Two possibilities lane 0 /lane1
+              {
+                //Find the lane where the car is farthest
+                vector<double> lanes1_2 = {min_lane0,-100000,min_lane2};
+                int idx = std::max_element(lanes1_2.begin(),lanes1_2.end())-lanes1_2.begin();
+
+                if (lanes1_2[idx] >20)
+                {
+                  lane = idx;
+                }
+
+              }
+              if((lane ==0) && (min_lane1 > 20))
+              {
+                lane = 1;
+              }
+
+              if((lane ==2) && (min_lane1 > 20))
+              {
+                lane = 1;
+              }
+
+
+            }
+            else if (ref_vel<49.5)
+            {
+              ref_vel += 0.224;
+            }
+
+            //create list of x and y way points
+            vector<double> ptsx;
+          	vector<double> ptsy;
+
+            //Reference car state
+            double ref_x = car_x;
+            double ref_y = car_y;
+            double ref_yaw = deg2rad(car_yaw);
+
+            //Previous size almost empty,find points tangents to the car
+            if (prev_size <2)
+            {
+            double tangent_car_x = car_x - cos(car_yaw);
+            double tangent_car_y = car_y - sin(car_yaw);
+            ptsx.push_back(tangent_car_x);
+            ptsx.push_back(car_x);
+            ptsy.push_back(tangent_car_y);
+            ptsy.push_back(car_y);
+          }
+          else{
+            ref_x = previous_path_x[prev_size-1];
+            ref_y = previous_path_y[prev_size-1];
+            double ref_x_prev = previous_path_x[prev_size-2];
+            double ref_y_prev = previous_path_y[prev_size-2];
+
+            ptsx.push_back(ref_x_prev);
+            ptsx.push_back(ref_x);
+            ptsy.push_back(ref_y_prev);
+            ptsy.push_back(ref_y);
+          }
+          //In Frenet add points ahead in 30 m spacing from the starting ref.
+          vector<double> next_wp0 = getXY(car_s+30,2+(4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);
+          vector<double> next_wp1 = getXY(car_s+60,2+(4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);
+          vector<double> next_wp2 = getXY(car_s+90,2+(4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);
+
+          ptsx.push_back(next_wp0[0]);
+          ptsx.push_back(next_wp1[0]);
+          ptsx.push_back(next_wp2[0]);
+
+          ptsy.push_back(next_wp0[1]);
+          ptsy.push_back(next_wp1[1]);
+          ptsy.push_back(next_wp2[1]);
+
+          //Make a shift to car coordinates with ref angle at 0 degrees
+          for(int i=0;i < ptsx.size();i++)
+          {
+            double x_shift = ptsx[i] - ref_x;
+            double y_shift = ptsy[i] - ref_y;
+            ptsx[i]= x_shift*cos(0-ref_yaw) - y_shift * sin(0-ref_yaw);
+            ptsy[i]= x_shift*sin(0-ref_yaw) + y_shift * cos(0-ref_yaw);
+          }
+
+          //create spline (using the spline library) Use either spline or Polynomial fitting.
+          tk::spline s;
+          s.set_points(ptsx,ptsy);
+
+            //Next values
           	vector<double> next_x_vals;
           	vector<double> next_y_vals;
 
-
           	// TODO: define a path made up of (x,y) points that the car will visit sequentially every .02 seconds
+            for (int i=0;i<previous_path_y.size();i++)
+            {
+              next_x_vals.push_back(previous_path_x[i]);
+              next_y_vals.push_back(previous_path_y[i]);
+            }
+            //Interpolate the spline at specific points(30 interval) so that we can travel at ref velocity
+            double target_x = 30.0;
+            double target_y = s(target_x);
+            double target_dist = sqrt(pow(target_x,2)+pow(target_y,2));
+
+            double x_add_on =0;
+            //Fill up the rest of the path planner after filling with previous points.
+            for (int i=0;i <= 50- previous_path_x.size();i++)
+            {
+              //create point distance in terms of the required velocity
+              double N = (target_dist/(0.02*ref_vel/2.24));//2.24 miles/hr to mtrs/sec
+              double x_point = x_add_on + (target_x/N);
+              double y_point = s(x_point);
+
+              x_add_on = x_point;
+
+              double x_ref = x_point;
+              double y_ref = y_point;
+
+              //Change the co ordinates back  from car to global map before sending to simulator
+              x_point = (x_ref*cos(ref_yaw)-y_ref*sin(ref_yaw));
+              y_point = (x_ref*sin(ref_yaw)+y_ref*cos(ref_yaw));
+
+              x_point += ref_x;
+              y_point += ref_y;
+
+              next_x_vals.push_back(x_point);
+              next_y_vals.push_back(y_point);
+
+            }
+
+
+
+            /**
+            double dist_inc = 0.5;
+            //using Frenet coordinates
+            for(int i = 0; i < 50; i++)
+             {
+                double next_s = car_s+(i+1)*dist_inc;
+                double next_d =6;//(Each lane is 4 ;this is in second lane so half of next lane is 2=6)
+                vector<double> xy =  getXY(next_s, next_d, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+                next_x_vals.push_back(xy[0]);
+                next_y_vals.push_back(xy[1]);
+            }**/
+
+               //End
+
           	msgJson["next_x"] = next_x_vals;
           	msgJson["next_y"] = next_y_vals;
 
@@ -247,7 +462,7 @@ int main() {
 
           	//this_thread::sleep_for(chrono::milliseconds(1000));
           	ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
-          
+
         }
       } else {
         // Manual driving
@@ -290,83 +505,3 @@ int main() {
   }
   h.run();
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
