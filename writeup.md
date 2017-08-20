@@ -39,7 +39,8 @@ The car doesnt collide with any of the other cars.It decelerates when it sees a 
 The car truly stays in the lane except the lane changing.This we make sure by creating 'd' value of trajectories with the lane information when creating the waypoints in XY coordinates.
 
 ```c++
-ector<double> next_wp0 = getXY(car_s+30,2+(4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);```
+vector<double> next_wp0 = getXY(car_s+30,2+(4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);
+```
 
 
 #### 7. The car is able to change lanes
@@ -79,7 +80,8 @@ Initially the car is in Middle Lane.
 ```c++  
 int lane =1;//Lanes are 0,1,2. Here we start in the centre lane.
 double ref_vel = 0;//Reference velocity
-double new_target_speed = 49.5;// Target velocity we Aim for.```
+double new_target_speed = 49.5;// Target velocity we Aim for.
+```
 
 
 This 'lane' variable will be used to denote lane chnages and will be used for calculations below.In addition to that the target speed specified in the Rubic,50 mph(~49.5) is set as the target speed of the car.'ref_vel' is the actual velocity command to the car at the moment. The velocity is set to the car in term of the distance between the consecutive path points .(lines 435 & 436).
@@ -87,7 +89,8 @@ This 'lane' variable will be used to denote lane chnages and will be used for ca
 ```c++
 //create point distance in terms of the required velocity
 double N = (target_dist/(0.02*ref_vel/2.24));//2.24 miles/hr to mtrs/sec
-double x_point = x_add_on + (target_x/N);```
+double x_point = x_add_on + (target_x/N);
+```
 
 More on this later.
 
@@ -95,17 +98,20 @@ At first , from the sensor fusion we collect the data for the cars and group the
 we find the lane for that car and record the distance of that car with our ego car (car we control). Thus we have three vectors,lane0,lane1 and lane2 have the distance of all the cars in each lane respective to our car.(lines 256 to 281)
 
 ```c++
-double dis = car_s - s;```
+double dis = car_s - s;
+```
 
 For each car, we get the s,d , calculate the velocity .Also we project the position of the car over time for next iteration in future.(line 290)
 
 ```c++
-check_car_s += (double)prev_size*0.02*check_speed;```
+check_car_s += (double)prev_size*0.02*check_speed;
+```
 
 If any car is in our lane and its in front on us,and its in front of us, then time to slow down the car.Note the speed of the front car and latch to its speed approx.This is done by setting the variable 'too_close' to True and setting the 'new_target_speed'(lines 293 to 298).
 
 ```c++
-new_target_speed = (check_speed*2.23694) -10;```
+new_target_speed = (check_speed*2.23694) -10;
+```
 
 Here 2.23694 does the conversion from m/sec to mph.
 
@@ -115,7 +121,8 @@ Lane Change:
 ```c++
      if((lane ==0) && (min_lane1 > 20))
      {
-       lane = 1;}```
+       lane = 1;}
+       ```
 
 ### Path Generation:
 
@@ -133,7 +140,8 @@ The path is generated in Frenet coordinates and then converted to the XY coordin
     ptsx.push_back(car_x);
     ptsy.push_back(tangent_car_y);
     ptsy.push_back(car_y);
-  }```
+  }
+  ```
 
 2. Incase already points are avialiable from previous run, just add the remaining last two points in the current points(lines 365 to 368).
 
@@ -142,7 +150,8 @@ The path is generated in Frenet coordinates and then converted to the XY coordin
 //In Frenet add points ahead in 30 m spacing from the starting ref.
 vector<double> next_wp0 = getXY(car_s+30,2+(4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);
 vector<double> next_wp1 = getXY(car_s+60,2+(4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);
-vector<double> next_wp2 = getXY(car_s+90,2+(4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);```
+vector<double> next_wp2 = getXY(car_s+90,2+(4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);
+```
 
 As seen we are using 'lane' to calculate 'd' the position of the car one the road .Each lane is 4 meters width.So for lane0, the d value will be two.Using the getXY function we convert them back to the XY coordinates.
 and add them to the wapoints vectors ptsx and ptsy.(lines 376 to 386).
@@ -153,7 +162,8 @@ and add them to the wapoints vectors ptsx and ptsy.(lines 376 to 386).
 double x_shift = ptsx[i] - ref_x;
 double y_shift = ptsy[i] - ref_y;
 ptsx[i]= x_shift*cos(0-ref_yaw) - y_shift * sin(0-ref_yaw);
-ptsy[i]= x_shift*sin(0-ref_yaw) + y_shift * cos(0-ref_yaw);```
+ptsy[i]= x_shift*sin(0-ref_yaw) + y_shift * cos(0-ref_yaw);
+```
 
 #### Curve Fitting:
 To create a smooth trajectory, i used http://kluge.in-chemnitz.de/opensource/spline/ .It reduces teh task of doing Polynomial fitting again in the code.
@@ -161,7 +171,8 @@ To create a smooth trajectory, i used http://kluge.in-chemnitz.de/opensource/spl
 1. Define and set the waypoints in the spline library.The points along which a curve /trajectory to be fit.
 ```c++
 tk::spline s;
-s.set_points(ptsx,ptsy);```
+s.set_points(ptsx,ptsy);
+```
 
 2.we set a vicinity of 30 meters,target_x,interpolate the y value for that x using spline and then find the distance magnitude from the car position to the vicinity point.
 
@@ -173,7 +184,8 @@ double target_dist = sqrt(pow(target_x,2)+pow(target_y,2));
 
 3. The distance calculated above will be mathematically equal to the product of 'N' no of parts this distance is split;velocity and a factor of 0.02.So Essentially
 ```
-N * ref_vel*0.02 = target_dist```
+N * ref_vel*0.02 = target_dist
+```
 
 4. Using the above formulae, we calculate 'N' for how many strips the present distance that we got (~30 ms) should be split(target_x/N) , so that each strip will be covered in 20 milliseconds(defined by simulator) so as to maintain  the required velocity.Here we convert the required velocity in terms of distance between points.(lines 418 to 423).
 
@@ -181,7 +193,8 @@ N * ref_vel*0.02 = target_dist```
 //create point distance in terms of the required velocity
 double N = (target_dist/(0.02*ref_vel/2.24));//2.24 miles/hr to mtrs/sec
 double x_point = x_add_on + (target_x/N);
-double y_point = s(x_point);```
+double y_point = s(x_point);
+```
 
 we create around 50 points. We don't build the 50 points from groundup.Instead for smoothness, we take the leftout point (ie)points not yet covered by the car generated by the previous iteration .In addition to that we generate the new points to sum to 50 points.(line 418)
 
@@ -190,7 +203,8 @@ we create around 50 points. We don't build the 50 points from groundup.Instead f
 ```c++
 //Change the co ordinates back  from car to global map before sending to simulator
 x_point = (x_ref*cos(ref_yaw)-y_ref*sin(ref_yaw));
-y_point = (x_ref*sin(ref_yaw)+y_ref*cos(ref_yaw));```
+y_point = (x_ref*sin(ref_yaw)+y_ref*cos(ref_yaw));
+```
 
 ### Further Improvement.
 
