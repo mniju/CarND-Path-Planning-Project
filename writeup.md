@@ -123,7 +123,7 @@ Lane change has to be done when we encounter a slower vehicle in addition to slo
      {
        lane = 1;
      }
-       ```
+```
 
 ### Path Generation:
 
