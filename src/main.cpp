@@ -264,7 +264,13 @@ int main() {
             {
               float d = sensor_fusion[i][6];
               double s = sensor_fusion[i][5];
-              double dis = car_s - s;//Distance of this car w.r.t to our car
+              double vx = sensor_fusion[i][3];
+              double vy = sensor_fusion[i][4];
+              double check_speed = sqrt(vx*vx + vy*vy);//magnitude of velocity
+              double check_car_s = sensor_fusion[i][5];
+              check_car_s += (double)prev_size*0.02*check_speed;
+              //s += (double)prev_size*0.02*check_speed;
+              double dis = check_car_s - car_s;//Distance of this car w.r.t to our car
               int car_lane = floor(d/l_width);
               if (car_lane == 0)
               {
@@ -282,20 +288,20 @@ int main() {
               //check if the current car is in our lane
               if (d < (2+ 4*lane+2) && d >(2+ 4*lane -2))
               {
-                double vx = sensor_fusion[i][3];
-                double vy = sensor_fusion[i][4];
-                double check_speed = sqrt(vx*vx + vy*vy);//magnitude of velocity
-                double check_car_s = sensor_fusion[i][5];
+                //double vx = sensor_fusion[i][3];
+                //double vy = sensor_fusion[i][4];
+                //double check_speed = sqrt(vx*vx + vy*vy);//magnitude of velocity
+                //double check_car_s = sensor_fusion[i][5];
 
-                check_car_s += (double)prev_size*0.02*check_speed;//Project position at the next iteration
+                //check_car_s += (double)prev_size*0.02*check_speed;//Project position at the next iteration
 
                 //check if the vehicle is in front our car ; if the gap between our car and vehicle is less ~30
-                if ((check_car_s >car_s)&& ( check_car_s-car_s <30.0))
+                if ((check_car_s >car_s)&& ( check_car_s-car_s <40.0))
                 {
                   //ref_vel = 29.5;
                   too_close = true;
                   std::cout<<"Car at Front:->Its Speed:"<<check_speed*2.23694<<std::endl;//m/sec to miles per hour conversion
-                  new_target_speed = (check_speed*2.23694) -10;// subtract 5 for safety
+                  new_target_speed = (check_speed*2.23694) - 10 ;// subtract 5 for safety
 
                 }
               }
@@ -305,7 +311,7 @@ int main() {
             {
               if (ref_vel > new_target_speed)
               {
-                ref_vel -= 0.224;//5 meters/sec2
+                ref_vel -= 0.324;//5 meters/sec2
               }
               //consider only two lanes (Lane0 and Lane1)
               //Find minimum of lane0
