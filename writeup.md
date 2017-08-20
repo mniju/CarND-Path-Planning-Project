@@ -37,8 +37,10 @@ The car doesnt collide with any of the other cars.It decelerates when it sees a 
 
 #### 6. The car stays in its lane, except for the time between changing lanes.
 The car truly stays in the lane except the lane changing.This we make sure by creating 'd' value of trajectories with the lane information when creating the waypoints in XY coordinates.
+
 ```c++
 ector<double> next_wp0 = getXY(car_s+30,2+(4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);```
+
 
 #### 7. The car is able to change lanes
 The car changes the lane smoothly thanks to the spline library that is used to build the path.
@@ -78,6 +80,8 @@ Initially the car is in Middle Lane.
 int lane =1;//Lanes are 0,1,2. Here we start in the centre lane.
 double ref_vel = 0;//Reference velocity
 double new_target_speed = 49.5;// Target velocity we Aim for.```
+
+
 This 'lane' variable will be used to denote lane chnages and will be used for calculations below.In addition to that the target speed specified in the Rubic,50 mph(~49.5) is set as the target speed of the car.'ref_vel' is the actual velocity command to the car at the moment. The velocity is set to the car in term of the distance between the consecutive path points .(lines 435 & 436).
 
 ```c++
@@ -89,10 +93,12 @@ More on this later.
 
 At first , from the sensor fusion we collect the data for the cars and group them interms of the lane. Since the lane with is 4 units, from the 'd' value we get for each car
 we find the lane for that car and record the distance of that car with our ego car (car we control). Thus we have three vectors,lane0,lane1 and lane2 have the distance of all the cars in each lane respective to our car.(lines 256 to 281)
+
 ```c++
 double dis = car_s - s;```
 
 For each car, we get the s,d , calculate the velocity .Also we project the position of the car over time for next iteration in future.(line 290)
+
 ```c++
 check_car_s += (double)prev_size*0.02*check_speed;```
 
