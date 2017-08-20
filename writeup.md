@@ -115,13 +115,14 @@ new_target_speed = (check_speed*2.23694) -10;
 
 Here 2.23694 does the conversion from m/sec to mph.
 
-Lane Change:
-     Lane change has to be done when we encounter a slower vehicle in addition to slowing down the car  as mentioned above.For that i check if the cars in the neraby lanes are nearby(~20 meters) either at front or back .If there is a car in that distance, then i dont make a lan chnage.(lines 312 to 335).Lane chnage he is done by setting the variable 'lane' to the apt value
+#### Lane Change:
+Lane change has to be done when we encounter a slower vehicle in addition to slowing down the car  as mentioned above.For that i check if the cars in the neraby lanes are nearby(~20 meters) either at front or back .If there is a car in that distance, then i dont make a lan chnage.(lines 312 to 335).Lane chnage he is done by setting the variable 'lane' to the apt value
 
 ```c++
      if((lane ==0) && (min_lane1 > 20))
      {
-       lane = 1;}
+       lane = 1;
+     }
        ```
 
 ### Path Generation:
@@ -211,3 +212,5 @@ y_point = (x_ref*sin(ref_yaw)+y_ref*cos(ref_yaw));
 Implement a Cost functions. since the spline tractory takes care of lane change and smoothening, cost function is not implemented.
 
 Implement prediction of the position of other cars using the Naive Bayes
+
+Also , needless to say the Initial Framework of driving the car in the lane , i mostly borrowed from the Project Walkthrough.
