@@ -1,27 +1,56 @@
-# CarND-Path-Planning-Project
-Self-Driving Car Engineer Nanodegree Program
-   
-### Simulator.
-You can download the Term3 Simulator which contains the Path Planning Project from the [releases tab (https://github.com/udacity/self-driving-car-sim/releases).
+## Path-Planning-Project
+The objective of this project is to plan a Trajectory and make the car navigate a 3 lane highway
+without any collision ,maintaining the levels of jerk, acceleration and speed.
 
-### Goals
-In this project your goal is to safely navigate around a virtual highway with other traffic that is driving +-10 MPH of the 50 MPH speed limit. You will be provided the car's localization and sensor fusion data, there is also a sparse map list of waypoints around the highway. The car should try to go as close as possible to the 50 MPH speed limit, which means passing slower traffic when possible, note that other cars will try to change lanes too. The car should avoid hitting other cars at all cost as well as driving inside of the marked road lanes at all times, unless going from one lane to another. The car should be able to make one complete loop around the 6946m highway. Since the car is trying to go 50 MPH, it should take a little over 5 minutes to complete 1 loop. Also the car should not experience total acceleration over 10 m/s^2 and jerk that is greater than 50 m/s^3.
+### Rubics:
+#### 1. Compilation:
+The code compiles without any error with the give cMake.It was compiled and tested in
+Ubuntu 16.04 Virtual machine.
 
-#### The map of the highway is in data/highway_map.txt
-Each waypoint in the list contains  [x,y,s,dx,dy] values. x and y are the waypoint's map coordinate position, the s value is the distance along the road to get to that waypoint in meters, the dx and dy values define the unit normal vector pointing outward of the highway loop.
+```
+VirtualBox:~/Term3/CarND-Path-Planning-Project/build$ make
+Scanning dependencies of target path_planning
+[ 50%] Building CXX object CMakeFiles/path_planning.dir/src/main.cpp.o
+[100%] Linking CXX executable path_planning
+[100%] Built target path_planning
+````
+#### 2. The car is able to drive at least 4.32 miles without incident:
+The car is able to drive the mentioned 4.42 miles without any incident.Its able to go well
+beyond that .The attatched image '5 Miles.png' shows this.
 
-The highway's waypoints loop around so the frenet s value, distance along the road, goes from 0 to 6945.554.
+#### 3. The car drives according to the speed limit:
+The speed limit here is 50 mph .It doesnt exceed the speed limit any time of its run in the track.This can be seen in the attatched video '6 miles run.wmv'. The max speed limit of 49.5 mph is set in the code.(lines 340 to 343)
+```c++
+else if (ref_vel<49.5)
+{
+  ref_vel += 0.224;
+}
+```
 
-## Basic Build Instructions
+#### 4. Max Acceleration and Jerk are not Exceeded.
+The car does not exceed a total acceleration of 10 m/s^2 and a jerk of 10 m/s^3.
+This can be seen from the video.
+The speed of the car is increased slowly for cold start so that it doesnt accelerate or cause jerk.While decelerating also, it doesnt exceed the limits.
 
-1. Clone this repo.
-2. Make a build directory: `mkdir build && cd build`
-3. Compile: `cmake .. && make`
-4. Run it: `./path_planning`.
+#### 5. Car does not have collisions.
+The car doesnt collide with any of the other cars.It decelerates when it sees a car in front.It changes lane, only when there is no other car in the vicinity of 20 m (both front and back)in the other lane.
 
-Here is the data provided from the Simulator to the C++ Program
+#### 6. The car stays in its lane, except for the time between changing lanes.
+The car truly stays in the lane except the lane changing.This we make sure by creating 'd' value of trajectories with the lane information when creating the waypoints in XY coordinates.
 
-#### Main car's localization Data (No Noise)
+```c++
+vector<double> next_wp0 = getXY(car_s+30,2+(4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);
+```
+
+
+#### 7. The car is able to change lanes
+The car changes the lane smoothly thanks to the spline library that is used to build the path.
+
+### Model Documentation:
+
+#### Data from the Udacity Simulator:
+
+Main car's localization Data (No Noise):
 
 ["x"] The car's x position in map coordinates
 
@@ -35,102 +64,153 @@ Here is the data provided from the Simulator to the C++ Program
 
 ["speed"] The car's speed in MPH
 
-#### Previous path data given to the Planner
-
-//Note: Return the previous list but with processed points removed, can be a nice tool to show how far along
-the path has processed since last time. 
-
-["previous_path_x"] The previous list of x points previously given to the simulator
+["previous_path_x"] The previous list of x points previously given to the simulator.
 
 ["previous_path_y"] The previous list of y points previously given to the simulator
 
-#### Previous path's end s and d values 
+["end_path_s"] The previous list's last point's frenet s value.
 
-["end_path_s"] The previous list's last point's frenet s value
+["end_path_d"] The previous list's last point's frenet d value.
 
-["end_path_d"] The previous list's last point's frenet d value
+["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates.
 
-#### Sensor Fusion Data, a list of all other car's attributes on the same side of the road. (No Noise)
+#### Steps:
 
-["sensor_fusion"] A 2d vector of cars and then that car's [car's unique ID, car's x position in map coordinates, car's y position in map coordinates, car's x velocity in m/s, car's y velocity in m/s, car's s position in frenet coordinates, car's d position in frenet coordinates. 
-
-## Details
-
-1. The car uses a perfect controller and will visit every (x,y) point it recieves in the list every .02 seconds. The units for the (x,y) points are in meters and the spacing of the points determines the speed of the car. The vector going from a point to the next point in the list dictates the angle of the car. Acceleration both in the tangential and normal directions is measured along with the jerk, the rate of change of total Acceleration. The (x,y) point paths that the planner recieves should not have a total acceleration that goes over 10 m/s^2, also the jerk should not go over 50 m/s^3. (NOTE: As this is BETA, these requirements might change. Also currently jerk is over a .02 second interval, it would probably be better to average total acceleration over 1 second and measure jerk from that.
-
-2. There will be some latency between the simulator running and the path planner returning a path, with optimized code usually its not very long maybe just 1-3 time steps. During this delay the simulator will continue using points that it was last given, because of this its a good idea to store the last points you have used so you can have a smooth transition. previous_path_x, and previous_path_y can be helpful for this transition since they show the last points given to the simulator controller with the processed points already removed. You would either return a path that extends this previous path or make sure to create a new path that has a smooth transition with this last path.
-
-## Tips
-
-A really helpful resource for doing this project and creating smooth trajectories was using http://kluge.in-chemnitz.de/opensource/spline/, the spline function is in a single hearder file is really easy to use.
-
----
-
-## Dependencies
-
-* cmake >= 3.5
- * All OSes: [click here for installation instructions](https://cmake.org/install/)
-* make >= 4.1
-  * Linux: make is installed by default on most Linux distros
-  * Mac: [install Xcode command line tools to get make](https://developer.apple.com/xcode/features/)
-  * Windows: [Click here for installation instructions](http://gnuwin32.sourceforge.net/packages/make.htm)
-* gcc/g++ >= 5.4
-  * Linux: gcc / g++ is installed by default on most Linux distros
-  * Mac: same deal as make - [install Xcode command line tools]((https://developer.apple.com/xcode/features/)
-  * Windows: recommend using [MinGW](http://www.mingw.org/)
-* [uWebSockets](https://github.com/uWebSockets/uWebSockets)
-  * Run either `install-mac.sh` or `install-ubuntu.sh`.
-  * If you install from source, checkout to commit `e94b6e1`, i.e.
-    ```
-    git clone https://github.com/uWebSockets/uWebSockets 
-    cd uWebSockets
-    git checkout e94b6e1
-    ```
-
-## Editor Settings
-
-We've purposefully kept editor configuration files out of this repo in order to
-keep it as simple and environment agnostic as possible. However, we recommend
-using the following settings:
-
-* indent using spaces
-* set tab width to 2 spaces (keeps the matrices in source code aligned)
-
-## Code Style
-
-Please (do your best to) stick to [Google's C++ style guide](https://google.github.io/styleguide/cppguide.html).
-
-## Project Instructions and Rubric
-
-Note: regardless of the changes you make, your project must be buildable using
-cmake and make!
+Initially the car is in Middle Lane.
+```c++  
+int lane =1;//Lanes are 0,1,2. Here we start in the centre lane.
+double ref_vel = 0;//Reference velocity
+double new_target_speed = 49.5;// Target velocity we Aim for.
+```
 
 
-## Call for IDE Profiles Pull Requests
+This 'lane' variable will be used to denote lane chnages and will be used for calculations below.In addition to that the target speed specified in the Rubic,50 mph(~49.5) is set as the target speed of the car.'ref_vel' is the actual velocity command to the car at the moment. The velocity is set to the car in term of the distance between the consecutive path points .(lines 435 & 436).
 
-Help your fellow students!
+```c++
+//create point distance in terms of the required velocity
+double N = (target_dist/(0.02*ref_vel/2.24));//2.24 miles/hr to mtrs/sec
+double x_point = x_add_on + (target_x/N);
+```
 
-We decided to create Makefiles with cmake to keep this project as platform
-agnostic as possible. Similarly, we omitted IDE profiles in order to ensure
-that students don't feel pressured to use one IDE or another.
+More on this later.
 
-However! I'd love to help people get up and running with their IDEs of choice.
-If you've created a profile for an IDE that you think other students would
-appreciate, we'd love to have you add the requisite profile files and
-instructions to ide_profiles/. For example if you wanted to add a VS Code
-profile, you'd add:
+At first , from the sensor fusion we collect the data for the cars and group them interms of the lane. Since the lane with is 4 units, from the 'd' value we get for each car
+we find the lane for that car and record the distance of that car with our ego car (car we control). Thus we have three vectors,lane0,lane1 and lane2 have the distance of all the cars in each lane respective to our car.(lines 256 to 281)
 
-* /ide_profiles/vscode/.vscode
-* /ide_profiles/vscode/README.md
+```c++
+double dis = car_s - s;
+```
 
-The README should explain what the profile does, how to take advantage of it,
-and how to install it.
+For each car, we get the s,d , calculate the velocity .Also we project the position of the car over time for next iteration in future.(line 290)
 
-Frankly, I've never been involved in a project with multiple IDE profiles
-before. I believe the best way to handle this would be to keep them out of the
-repo root to avoid clutter. My expectation is that most profiles will include
-instructions to copy files to a new location to get picked up by the IDE, but
-that's just a guess.
+```c++
+check_car_s += (double)prev_size*0.02*check_speed;
+```
 
-One last note here: regardless of the IDE used, every submitted project must
-still be compilable with cmake and make./
+If any car is in our lane and its in front on us,and its in front of us, then time to slow down the car.Note the speed of the front car and latch to its speed approx.This is done by setting the variable 'too_close' to True and setting the 'new_target_speed'(lines 293 to 298).
+
+```c++
+new_target_speed = (check_speed*2.23694) -10;
+```
+
+Here 2.23694 does the conversion from m/sec to mph.
+
+#### Lane Change:
+Lane change has to be done when we encounter a slower vehicle in addition to slowing down the car  as mentioned above.For that i check if the cars in the neraby lanes are nearby(~20 meters) either at front or back .If there is a car in that distance, then i dont make a lan chnage.(lines 312 to 335).Lane chnage he is done by setting the variable 'lane' to the apt value
+
+```c++
+     if((lane ==0) && (min_lane1 > 20))
+     {
+       lane = 1;
+     }
+```
+
+### Path Generation:
+
+The path is generated in Frenet coordinates and then converted to the XY coordinates.
+
+1. Initially check if there are any other previous paths.If not create a point tangential to the present car position.Vectors 'ptsx' and 'ptsy' hold the waypoints in Frenet co-ordinates.
+    (lines 355 to 362)
+
+```c++
+    if (prev_size <2)
+    {
+    double tangent_car_x = car_x - cos(car_yaw);
+    double tangent_car_y = car_y - sin(car_yaw);
+    ptsx.push_back(tangent_car_x);
+    ptsx.push_back(car_x);
+    ptsy.push_back(tangent_car_y);
+    ptsy.push_back(car_y);
+  }
+  ```
+
+2. Incase already points are avialiable from previous run, just add the remaining last two points in the current points(lines 365 to 368).
+
+3. In Frenet co-ordinates, add 3 waypoints with 30 m spacing from the current car position.
+```c++
+//In Frenet add points ahead in 30 m spacing from the starting ref.
+vector<double> next_wp0 = getXY(car_s+30,2+(4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);
+vector<double> next_wp1 = getXY(car_s+60,2+(4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);
+vector<double> next_wp2 = getXY(car_s+90,2+(4*lane),map_waypoints_s,map_waypoints_x,map_waypoints_y);
+```
+
+As seen we are using 'lane' to calculate 'd' the position of the car one the road .Each lane is 4 meters width.So for lane0, the d value will be two.Using the getXY function we convert them back to the XY coordinates.
+and add them to the wapoints vectors ptsx and ptsy.(lines 376 to 386).
+
+4. Convert the waypoints to Car XY coordinates w.r. to car.(lines 389-394)
+
+```c++
+double x_shift = ptsx[i] - ref_x;
+double y_shift = ptsy[i] - ref_y;
+ptsx[i]= x_shift*cos(0-ref_yaw) - y_shift * sin(0-ref_yaw);
+ptsy[i]= x_shift*sin(0-ref_yaw) + y_shift * cos(0-ref_yaw);
+```
+
+#### Curve Fitting:
+To create a smooth trajectory, i used http://kluge.in-chemnitz.de/opensource/spline/ .It reduces teh task of doing Polynomial fitting again in the code.
+
+1. Define and set the waypoints in the spline library.The points along which a curve /trajectory to be fit.
+```c++
+tk::spline s;
+s.set_points(ptsx,ptsy);
+```
+
+2.we set a vicinity of 30 meters,target_x,interpolate the y value for that x using spline and then find the distance magnitude from the car position to the vicinity point.
+
+```c++
+double target_x = 30.0;
+double target_y = s(target_x);
+double target_dist = sqrt(pow(target_x,2)+pow(target_y,2));
+```
+
+3. The distance calculated above will be mathematically equal to the product of 'N' no of parts this distance is split;velocity and a factor of 0.02.So Essentially
+```
+N * ref_vel*0.02 = target_dist
+```
+
+4. Using the above formulae, we calculate 'N' for how many strips the present distance that we got (~30 ms) should be split(target_x/N) , so that each strip will be covered in 20 milliseconds(defined by simulator) so as to maintain  the required velocity.Here we convert the required velocity in terms of distance between points.(lines 418 to 423).
+
+```c++
+//create point distance in terms of the required velocity
+double N = (target_dist/(0.02*ref_vel/2.24));//2.24 miles/hr to mtrs/sec
+double x_point = x_add_on + (target_x/N);
+double y_point = s(x_point);
+```
+
+we create around 50 points. We don't build the 50 points from groundup.Instead for smoothness, we take the leftout point (ie)points not yet covered by the car generated by the previous iteration .In addition to that we generate the new points to sum to 50 points.(line 418)
+
+5. Finally the points are converted from car coordinates to global coordiantes and updated in the 'next_x_vals' and 'next_y_vals' vector to be sent to the simulator.
+
+```c++
+//Change the co ordinates back  from car to global map before sending to simulator
+x_point = (x_ref*cos(ref_yaw)-y_ref*sin(ref_yaw));
+y_point = (x_ref*sin(ref_yaw)+y_ref*cos(ref_yaw));
+```
+
+### Further Improvement.
+
+Implement a Cost functions. since the spline tractory takes care of lane change and smoothening, cost function is not implemented.
+
+Implement prediction of the position of other cars using the Naive Bayes
+
+Also , needless to say the Initial Framework of driving the car in the lane , i mostly borrowed from the Project Walkthrough.
